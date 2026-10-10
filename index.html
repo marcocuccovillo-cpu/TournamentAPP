@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1226">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>TournamentAPP</title>
+<style>
+:root{--bg:#0f1226;--card:#1a1f3d;--c2:#232a52;--line:#2f376b;--ink:#eef0ff;--mute:#98a1d4;--gold:#ffc94a;--win:#3ddc97;--lose:#ff6b81}
+*{box-sizing:border-box;margin:0}
+body{background:radial-gradient(120% 60% at 50% -10%,#2a2f75 0,var(--bg) 60%) fixed;color:var(--ink);font:16px/1.4 system-ui,'Segoe UI',Roboto,sans-serif;padding:env(safe-area-inset-top) 0 96px;min-height:100vh}
+main{max-width:640px;margin:auto;padding:16px}
+h1{font-size:1.6rem;letter-spacing:-.02em}h2{font-size:1.1rem;margin-bottom:8px}
+.mute{color:var(--mute);font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;margin:12px 0}
+label{display:block;margin:10px 0 4px;color:var(--mute);font-size:.85rem}
+input,select{width:100%;background:var(--c2);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:12px;font:inherit}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--gold)}
+button{font:inherit;color:inherit;border:0;border-radius:12px;padding:12px 16px;background:var(--c2);cursor:pointer}
+button:active{transform:scale(.97)}
+.pri{background:var(--gold);color:#241a00;font-weight:700;width:100%;margin-top:8px}
+.pri:disabled{opacity:.35}
+.row{display:flex;gap:8px;align-items:center}
+.pr{display:flex;gap:10px;align-items:center;flex:1;margin:0;color:var(--ink);font-size:1rem;padding:8px 0}
+.pl{flex:1;padding:16px 8px;font-weight:600;border:2px solid transparent}
+.pl.w{border-color:var(--win);background:#173f3a}.pl.l{opacity:.45}
+.dr{width:100%;margin-top:8px;background:none;border:1px dashed var(--line);color:var(--mute)}
+.dr.on{background:var(--gold);color:#241a00;border-style:solid}
+.t{font-size:.8rem;color:var(--mute);margin-bottom:6px}
+table{width:100%;border-collapse:collapse}
+td,th{padding:9px 4px;text-align:center;border-bottom:1px solid var(--line)}
+th{color:var(--mute);font-weight:500;font-size:.8rem}
+td:nth-child(2),th:nth-child(2){text-align:left}
+tr.cut td{border-bottom:2px dashed var(--gold)}
+tr.d td{opacity:.45}
+.p1{color:var(--gold);font-weight:800}
+.b{font-size:.7rem;background:var(--lose);color:#fff;border-radius:8px;padding:2px 6px;margin-left:6px}
+.sm{padding:6px 10px;font-size:.8rem}
+.champ{text-align:center;padding:24px}.champ b{display:block;font-size:2rem;color:var(--gold);margin:6px 0}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#12163aee;backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border-radius:0;padding:16px 4px;color:var(--mute);font-size:.85rem}
+nav button.on{color:var(--gold);font-weight:700}
+</style>
+</head>
+<body>
+<main><h1>TournamentAPP</h1><p class="mute" id="sub"></p><div id="app"></div></main>
+<nav id="nav"></nav>
+<script>
+const K='torneo_v1',$=s=>document.querySelector(s);
+const e=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+let S;try{S=JSON.parse(localStorage.getItem(K))}catch(x){}
+S=S||{roster:[],present:[],results:{},t:null,tab:'p',setup:{game:'',rounds:0,cut:false,cutSize:8}};
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(x){}};
+const uid=()=>Math.random().toString(36).slice(2,9);
+const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]]}return a};
+const nm=id=>{const p=S.t.players.find(p=>p.id==id);return p?e(p.name):'?'};
+const cur=()=>S.t.phase=='sw'?S.t.sw[S.t.sw.length-1]:S.t.tp[S.t.tp.length-1];
+
+// ---- Logica torneo ----
+function stand(){const t=S.t,m={};
+ t.players.forEach(p=>m[p.id]={...p,pts:0,w:0,opps:[],bye:false,omw:0});
+ t.sw.forEach(rd=>rd.forEach(x=>{const A=m[x.a];
+  if(x.b==null){A.pts+=3;A.w++;A.bye=true;return}
+  const B=m[x.b];A.opps.push(B.id);B.opps.push(A.id);
+  if(x.r=='a'){A.pts+=3;A.w++}else if(x.r=='b'){B.pts+=3;B.w++}else if(x.r=='d'&&!t.ygo){A.pts++;B.pts++}}));
+ const L=Object.values(m);L.forEach(p=>p.omw=p.opps.reduce((s,o)=>s+m[o].pts,0));
+ return L.sort((a,b)=>b.pts-a.pts||b.omw-a.omw||b.w-a.w)}
+function pairSw(){let act=stand().filter(p=>!p.dropped);shuf(act);act.sort((a,b)=>b.pts-a.pts);
+ let bye=null;
+ if(act.length%2){for(let i=act.length-1;i>=0;i--)if(!act[i].bye){bye=act[i];break}
+  bye=bye||act[act.length-1];act=act.filter(p=>p!==bye)}
+ let n=0;const rec=a=>{if(!a.length)return[];if(++n>20000)return null;const x=a[0];
+  for(let i=1;i<a.length;i++){if(x.opps.includes(a[i].id))continue;
+   const r=rec(a.filter((_,k)=>k&&k!==i));if(r)return[[x,a[i]],...r]}return null};
+ let ps=rec(act);if(!ps){ps=[];for(let i=0;i<act.length;i+=2)ps.push([act[i],act[i+1]])}
+ const ms=ps.map(([a,b])=>({a:a.id,b:b.id,r:null}));
+ if(bye)ms.push({a:bye.id,b:null,r:'a'});return ms}
+function topR(){const s=S.t.surv,h=s.length/2,ms=[];
+ for(let i=0;i<h;i++)ms.push({a:s[i],b:s[s.length-1-i],r:null});return ms}
+function start(){const d=S.setup,ps=S.roster.filter(p=>S.present.includes(p.id));if(ps.length<2)return;
+ const n=ps.length,auto=Math.max(1,Math.ceil(Math.log2(n)));
+ S.t={game:d.game.trim()||'Torneo',ygo:/yu[\s\-]*gi[\s\-]*oh/i.test(d.game),rounds:d.rounds||auto,cut:d.cut&&n>24,cutSize:Math.min(d.cutSize,n),
+  players:ps.map(p=>({id:p.id,name:p.name,dropped:false})),phase:'sw',sw:[],tp:[],surv:[],seed:[],done:false,champ:null};
+ S.t.sw.push(pairSw());S.tab='t';save();R()}
+function next(){const t=S.t,c=cur();if(c.some(x=>x.r==null))return;
+ if(t.phase=='sw'){
+  if(t.sw.length<t.rounds)t.sw.push(pairSw());
+  else if(t.cut){t.phase='tp';t.seed=stand().filter(p=>!p.dropped).slice(0,t.cutSize).map(p=>p.id);
+   t.surv=[...t.seed];t.tp=[topR()]}
+  else finish()
+ }else{t.surv=c.map(x=>x.r=='a'?x.a:x.b).sort((a,b)=>t.seed.indexOf(a)-t.seed.indexOf(b));
+  if(t.surv.length==1){t.champ=t.surv[0];finish()}else t.tp.push(topR())}
+ save();R()}
+function finish(){const t=S.t,st=stand();t.champ=t.champ||st[0].id;t.done=true;
+ const G=S.results[t.game]=S.results[t.game]||{};
+ st.forEach(p=>{const r=G[p.id]=G[p.id]||{name:p.name,t:0,w:0,pts:0,ti:0};
+  r.name=p.name;r.t++;r.w+=p.w;r.pts+=p.pts;if(p.id==t.champ)r.ti++})}
+
+// ---- Azioni UI ----
+const go=t=>{S.tab=t;save();R()};
+function ad(){const i=$('#nm'),v=i.value.trim();if(!v)return;
+ if(!S.roster.some(p=>p.name.toLowerCase()==v.toLowerCase())){const p={id:uid(),name:v};S.roster.push(p);S.present.push(p.id)}
+ save();R();$('#nm').focus()}
+const tg=id=>{const i=S.present.indexOf(id);i<0?S.present.push(id):S.present.splice(i,1);save();R()};
+const dl=id=>{if(!confirm('Rimuovere il giocatore dall\'anagrafica? I risultati salvati restano.'))return;
+ S.roster=S.roster.filter(p=>p.id!=id);S.present=S.present.filter(x=>x!=id);save();R()};
+const rp=(i,v)=>{const m=cur()[i];m.r=m.r==v?null:v;save();R()};
+const dp=id=>{const p=S.t.players.find(p=>p.id==id);p.dropped=!p.dropped;save();R()};
+const reset=()=>{if(S.t.done||confirm('Annullare il torneo in corso? I risultati non verranno salvati.')){S.t=null;S.tab='p';save();R()}};
+const ex=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S)],{type:'application/json'}));a.download='tournamentapp-backup.json';a.click()};
+const im=ev=>{const f=ev.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=()=>{try{const o=JSON.parse(r.result);if(!o.roster||!o.results)throw 0;S=o;save();R()}catch(x){alert('File di backup non valido')}};r.readAsText(f)};
+
+// ---- Viste ----
+function vP(){const n=S.present.length,d=S.setup,auto=Math.max(1,Math.ceil(Math.log2(Math.max(n,2))));
+ const games=Object.keys(S.results).map(g=>`<option value="${e(g)}">`).join('');
+ const ros=[...S.roster].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>
+  `<div class="row"><label class="pr"><input type="checkbox" ${S.present.includes(p.id)?'checked':''} onchange="tg('${p.id}')">${e(p.name)}</label><button class="sm" onclick="dl('${p.id}')">✕</button></div>`).join('');
+ return `<div class="card"><h2>Impostazioni</h2>
+ <label>Gioco</label><input list="gl" value="${e(d.game)}" placeholder="es. Yu-Gi-Oh!, Magic, Pokémon…" oninput="S.setup.game=this.value;save()"><datalist id="gl">${games}</datalist>
+ <label>Turni (vuoto = automatico: ${auto})</label><input type="number" min="1" max="15" value="${d.rounds||''}" oninput="S.setup.rounds=+this.value;save()">
+ ${n>24?`<label class="row" style="color:var(--ink)"><input type="checkbox" ${d.cut?'checked':''} onchange="S.setup.cut=this.checked;save()"> Top cut dopo i turni svizzeri</label>
+ <select onchange="S.setup.cutSize=+this.value;save()">${[4,8,16].map(x=>`<option value="${x}" ${d.cutSize==x?'selected':''}>Top ${x}</option>`).join('')}</select>`:`<p class="mute" style="margin-top:8px">Il top cut è disponibile con più di 24 giocatori.</p>`}
+ </div>
+ <div class="card"><h2>Giocatori (${n} presenti)</h2>
+ <div class="row"><input id="nm" placeholder="Nome nuovo giocatore" onkeydown="if(event.key=='Enter')ad()"><button onclick="ad()">Aggiungi</button></div>
+ <div style="margin-top:8px">${ros||'<p class="mute">Aggiungi i giocatori: resteranno salvati per i prossimi tornei.</p>'}</div></div>
+ ${S.t?`<button class="pri" onclick="go('t')">Torneo in corso: apri</button>`:`<button class="pri" ${n<2?'disabled':''} onclick="start()">Conferma e genera turno 1</button>`}`}
+
+function vT(){const t=S.t;if(!t)return`<div class="card mute">Nessun torneo in corso. Scegli i giocatori e conferma dalla scheda Giocatori.</div>`;
+ if(t.done)return`<div class="card champ"><span class="mute">Torneo concluso · ${e(t.game)}</span><b>🏆 ${nm(t.champ)}</b><span class="mute">Risultati salvati nell'archivio</span></div><button class="pri" onclick="go('c')">Vedi classifica finale</button><button class="dr" onclick="reset()">Nuovo torneo</button>`;
+ const c=cur(),all=c.every(x=>x.r!=null),sw=t.phase=='sw',k=sw?0:c.length*2;
+ const title=sw?`Turno ${t.sw.length} di ${t.rounds}`:({2:'Finale',4:'Semifinali',8:'Quarti',16:'Ottavi'}[k]||'Top cut');
+ const last=sw?(t.sw.length==t.rounds&&!t.cut):k==2;
+ const lbl=last?'Termina e salva torneo':(sw&&t.sw.length==t.rounds?`Avvia Top ${t.cutSize}`:'Genera prossimo turno');
+ const ms=c.map((m,i)=>{if(m.b==null)return`<div class="card row"><b style="flex:1">${nm(m.a)}</b><span class="mute">Bye · +3 punti</span></div>`;
+  const cl=s=>m.r==s?'w':(m.r&&m.r!='d'?'l':'');
+  return`<div class="card"><div class="t">Tavolo ${i+1}</div><div class="row"><button class="pl ${cl('a')}" onclick="rp(${i},'a')">${nm(m.a)}</button><button class="pl ${cl('b')}" onclick="rp(${i},'b')">${nm(m.b)}</button></div>
+  ${sw?`<button class="dr ${m.r=='d'?'on':''}" onclick="rp(${i},'d')">${t.ygo?'Doppia sconfitta':'Pareggio'}</button>`:''}</div>`}).join('');
+ return`<h2 style="margin-top:12px">${title}</h2><p class="mute">Tocca il vincitore del match (tocca di nuovo per annullare).</p>${ms}
+ <button class="pri" ${all?'':'disabled'} onclick="next()">${lbl}</button><button class="dr" onclick="reset()">Annulla torneo</button>`}
+
+function vC(){const t=S.t;if(!t)return`<div class="card mute">La classifica appare quando inizia un torneo.</div>`;
+ const st=stand(),cutAt=t.cut?t.cutSize:-1;
+ return`<div class="card"><h2>Classifica · ${e(t.game)}</h2><table><tr><th>#</th><th>Giocatore</th><th>Pt</th><th>V</th><th>OMW</th><th></th></tr>
+ ${st.map((p,i)=>`<tr class="${p.dropped?'d':''} ${i+1==cutAt?'cut':''}"><td class="${i<3?'p1':''}">${i+1}</td><td>${e(p.name)}${p.dropped?'<span class="b">drop</span>':''}</td><td><b>${p.pts}</b></td><td>${p.w}</td><td>${p.omw}</td>
+ <td>${t.done?'':`<button class="sm" onclick="dp('${p.id}')">${p.dropped?'Rientra':'Drop'}</button>`}</td></tr>`).join('')}</table>
+ <p class="mute" style="margin-top:8px">Vittoria e bye = 3 pt, ${t.ygo?'doppia sconfitta = 0 pt per entrambi':'pareggio = 1 pt'}. Spareggio: OMW (somma punti degli avversari). Un giocatore in drop non viene accoppiato nei turni successivi ma resta in classifica.</p></div>`}
+
+function vA(){const gs=Object.keys(S.results);
+ return(gs.length?gs.map(g=>{const L=Object.values(S.results[g]).sort((a,b)=>b.pts-a.pts);
+  return`<div class="card"><h2>${e(g)}</h2><table><tr><th>#</th><th>Giocatore</th><th>Tornei</th><th>V</th><th>Pt</th><th>🏆</th></tr>
+  ${L.map((r,i)=>`<tr><td>${i+1}</td><td>${e(r.name)}</td><td>${r.t}</td><td>${r.w}</td><td><b>${r.pts}</b></td><td>${r.ti}</td></tr>`).join('')}</table></div>`}).join('')
+ :`<div class="card mute">Qui compariranno i risultati di ogni gioco, giocatore per giocatore, a fine torneo.</div>`)+
+ `<div class="card"><h2>Backup</h2><p class="mute">I dati sono salvati su questo dispositivo. Esporta un backup per sicurezza o per spostarli.</p>
+ <div class="row" style="margin-top:8px"><button onclick="ex()">Esporta</button><button onclick="$('#fi').click()">Importa</button><input id="fi" type="file" accept=".json" hidden onchange="im(event)"></div></div>`}
+
+function R(){const T=[['p','Giocatori'],['t','Torneo'],['c','Classifica'],['a','Archivio']];
+ $('#sub').textContent=S.t?S.t.game:'Gestione tornei di carte';
+ $('#app').innerHTML=({p:vP,t:vT,c:vC,a:vA})[S.tab]();
+ $('#nav').innerHTML=T.map(([k,l])=>`<button class="${S.tab==k?'on':''}" onclick="go('${k}')">${l}</button>`).join('')}
+R();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
