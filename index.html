@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f1226">
+<meta name="theme-color" content="#050506">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <title>TournamentAPP</title>
 <style>
-:root{--bg:#0f1226;--card:#1a1f3d;--c2:#232a52;--line:#2f376b;--ink:#eef0ff;--mute:#98a1d4;--gold:#ffc94a;--win:#3ddc97;--lose:#ff6b81}
+:root{--bg:#050506;--card:#111114;--c2:#1c1c21;--line:#2b2b33;--ink:#f2f2f5;--mute:#9a9aa6;--gold:#ffc94a;--win:#3ddc97;--lose:#ff6b81}
 *{box-sizing:border-box;margin:0}
-body{background:radial-gradient(120% 60% at 50% -10%,#2a2f75 0,var(--bg) 60%) fixed;color:var(--ink);font:16px/1.4 system-ui,'Segoe UI',Roboto,sans-serif;padding:env(safe-area-inset-top) 0 96px;min-height:100vh}
+body{background:radial-gradient(120% 45% at 50% -10%,#2a2410 0,var(--bg) 60%) fixed;color:var(--ink);font:16px/1.4 system-ui,'Segoe UI',Roboto,sans-serif;padding:env(safe-area-inset-top) 0 96px;min-height:100vh}
 main{max-width:640px;margin:auto;padding:16px}
 h1{font-size:1.6rem;letter-spacing:-.02em}h2{font-size:1.1rem;margin-bottom:8px}
 .mute{color:var(--mute);font-size:.9rem}
@@ -26,7 +26,7 @@ button:active{transform:scale(.97)}
 .row{display:flex;gap:8px;align-items:center}
 .pr{display:flex;gap:10px;align-items:center;flex:1;margin:0;color:var(--ink);font-size:1rem;padding:8px 0}
 .pl{flex:1;padding:16px 8px;font-weight:600;border:2px solid transparent}
-.pl.w{border-color:var(--win);background:#173f3a}.pl.l{opacity:.45}
+.pl.w{border-color:var(--win);background:#0d2f24}.pl.l{opacity:.45}
 .dr{width:100%;margin-top:8px;background:none;border:1px dashed var(--line);color:var(--mute)}
 .dr.on{background:var(--gold);color:#241a00;border-style:solid}
 .t{font-size:.8rem;color:var(--mute);margin-bottom:6px}
@@ -40,7 +40,7 @@ tr.d td{opacity:.45}
 .b{font-size:.7rem;background:var(--lose);color:#fff;border-radius:8px;padding:2px 6px;margin-left:6px}
 .sm{padding:6px 10px;font-size:.8rem}
 .champ{text-align:center;padding:24px}.champ b{display:block;font-size:2rem;color:var(--gold);margin:6px 0}
-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#12163aee;backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:#09090bee;backdrop-filter:blur(10px);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 nav button{flex:1;background:none;border-radius:0;padding:16px 4px;color:var(--mute);font-size:.85rem}
 nav button.on{color:var(--gold);font-weight:700}
 </style>
@@ -59,6 +59,11 @@ const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i]
 const nm=id=>{const p=S.t.players.find(p=>p.id==id);return p?e(p.name):'?'};
 const cur=()=>S.t.phase=='sw'?S.t.sw[S.t.sw.length-1]:S.t.tp[S.t.tp.length-1];
 
+let ip=null;
+addEventListener('beforeinstallprompt',ev=>{ev.preventDefault();ip=ev;R()});
+addEventListener('appinstalled',()=>{ip=null;R()});
+const inst=async()=>{if(!ip)return;ip.prompt();await ip.userChoice;ip=null;R()};
+const vI=()=>matchMedia('(display-mode: standalone)').matches||S.hideI?'':`<div class="card"><h2>Installa l'app</h2>${ip?`<button class="pri" onclick="inst()">Installa TournamentAPP</button>`:`<p class="mute">Apri il menu ⋮ di Chrome e scegli «Installa app» (o «Aggiungi a schermata Home»).</p>`}<button class="dr" onclick="S.hideI=1;save();R()">Nascondi</button></div>`;
 // ---- Logica torneo ----
 function stand(){const t=S.t,m={};
  t.players.forEach(p=>m[p.id]={...p,pts:0,w:0,opps:[],bye:false,omw:0});
@@ -119,7 +124,7 @@ function vP(){const n=S.present.length,d=S.setup,auto=Math.max(1,Math.ceil(Math.
  const games=Object.keys(S.results).map(g=>`<option value="${e(g)}">`).join('');
  const ros=[...S.roster].sort((a,b)=>a.name.localeCompare(b.name)).map(p=>
   `<div class="row"><label class="pr"><input type="checkbox" ${S.present.includes(p.id)?'checked':''} onchange="tg('${p.id}')">${e(p.name)}</label><button class="sm" onclick="dl('${p.id}')">✕</button></div>`).join('');
- return `<div class="card"><h2>Impostazioni</h2>
+ return `${vI()}<div class="card"><h2>Impostazioni</h2>
  <label>Gioco</label><input list="gl" value="${e(d.game)}" placeholder="es. Yu-Gi-Oh!, Magic, Pokémon…" oninput="S.setup.game=this.value;save()"><datalist id="gl">${games}</datalist>
  <label>Turni (vuoto = automatico: ${auto})</label><input type="number" min="1" max="15" value="${d.rounds||''}" oninput="S.setup.rounds=+this.value;save()">
  ${n>24?`<label class="row" style="color:var(--ink)"><input type="checkbox" ${d.cut?'checked':''} onchange="S.setup.cut=this.checked;save()"> Top cut dopo i turni svizzeri</label>
